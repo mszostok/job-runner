@@ -1,0 +1,11 @@
+name: "foo"
+command: cmd
+arguments:
+  - arg1
+  - arg2
+flags:
+  a: flag-value
+  long-flag: true
+  repeated-flag:
+    - flag-value1
+    - flag-value2

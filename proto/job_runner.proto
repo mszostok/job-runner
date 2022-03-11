@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+import "google/protobuf/duration.proto";
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+
+package job_runner;
+
+enum Status {
+	RUNNING = 0;
+	FAILED = 1;
+	SUCCEEDED = 2;
+}
+
+message RunRequest {
+	// Name specifies Job name.
+	string name = 1;
+	// Command is the path of the command to run.
+	string command = 2;
+	// Args holds command line arguments.
+	repeated string args = 3;
+	// Env specifies the environment of the process.
+	// Each entry is of the form "key=value".
+	repeated string env = 4;
+}
+
+message RunResponse {}
+
+message GetRequest {
+	// Name specifies Job name.
+	string name = 1;
+}
+
+message GetResponse {
+	// CreatedBy specifies the tenant that executed a given Job.
+	string created_by = 1;
+	// Status of a given Job.
+	Status status = 2;
+	// ExitCode of the exited process.
+	int32 exit_code = 3;
+}
+
+message StreamLogsRequest {
+	// Name specifies Job name.
+	string name = 1;
+}
+
+message StreamLogsResponse {
+	// Output represents the streamed Job logs. It is from start of Job execution.
+	// Contains both the stdout and stderr.
+	string output = 1;
+}
+
+message StopRequest {
+	// Name specifies Job name.
+	string name = 1;
+	// GracePeriod represents a period of time given to the Job to terminate gracefully.
+	google.protobuf.Duration  grace_period = 2 [(gogoproto.stdduration) = true];
+}
+
+message StopResponse {
+	// Status of a given Job.
+	Status status = 1;
+	// ExitCode of the exited process.
+	int32 exit_code = 2;
+}
+
+// JobService provides functionality for managing Jobs
+service JobService {
+	rpc Run(RunRequest) returns (RunResponse){}
+	rpc Get(GetRequest) returns (GetResponse){}
+	rpc Stop(StopRequest) returns (StopResponse){}
+	rpc StreamLogs(StreamLogsRequest) returns (stream StreamLogsResponse) {};
+}
