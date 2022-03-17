@@ -47,7 +47,7 @@ message StreamLogsRequest {
 message StreamLogsResponse {
 	// Output represents the streamed Job logs. It is from start of Job execution.
 	// Contains both the stdout and stderr.
-	string output = 1;
+	bytes output = 1;
 }
 
 message StopRequest {

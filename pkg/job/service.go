@@ -9,9 +9,10 @@ import (
 type Status string
 
 const (
-	Running   Status = "RUNNING"
-	Failed    Status = "FAILED"
-	Succeeded Status = "SUCCEEDED"
+	Running    Status = "RUNNING"
+	Failed     Status = "FAILED"
+	Succeeded  Status = "SUCCEEDED"
+	Terminated Status = "TERMINATED"
 )
 
 // Service provides functionality to run/stop/watch arbitrary Linux processes.
@@ -72,7 +73,7 @@ type StreamLogsInput struct {
 
 type StreamLogsOutput struct {
 	// Output represents the streamed Job logs. It is from start of Job execution.
-	Output <-chan string
+	Output <-chan []byte
 	// Error allows communicating issues encountered during logs streaming.
 	Error <-chan error
 }
