@@ -39,10 +39,12 @@ type (
 	}
 
 	IO struct {
-		Max []IOMax `filename:"io.max,omitempty"`
+		Max IOMax `filename:"io.max,omitempty"`
 	}
 
-	IOMax struct {
+	IOMax []IOMaxEntry
+
+	IOMaxEntry struct {
 		Type  IOType
 		Major int64
 		Minor int64
@@ -50,13 +52,21 @@ type (
 	}
 )
 
-func (e IOMax) String() string {
-	return fmt.Sprintf("%d:%d %s=%d", e.Major, e.Minor, e.Type, e.Rate)
+func (e IOMaxEntry) String() string {
+	return fmt.Sprintf(`%d:%d %s=%d`, e.Major, e.Minor, e.Type, e.Rate)
+}
+
+func (io IOMax) Items() []string {
+	var out []string
+	for _, item := range io {
+		out = append(out, item.String())
+	}
+	return out
 }
 
 // MapResourceToFiles returns resources' settings indexed by a proper filename.
 //
-// NOTE: This function is "generic" but at the same time requires 3rd party lib (which uses reflection).
+// NOTE: Experimental approach - this function is "generic" but at the same time requires 3rd party lib (which uses reflection).
 // This can be easily changed, and we can attach a dedicated method to each resource entity,
 // similar to: https://github.com/containerd/cgroups/blob/2e502f6b9e43588a1108ebdd04c51ad2b04050f0/v2/cpu.go#L57
 func MapResourceToFiles(resources Resources) (map[string]interface{}, error) {

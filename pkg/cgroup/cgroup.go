@@ -1,7 +1,6 @@
 package cgroup
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"os"
@@ -69,24 +68,22 @@ func BootstrapParent(groupPath string, controllers ...Controller) error {
 		return nil
 	}
 
-	// 2. Ensure that given controllers are enabled on root level
-	requiredControllers := map[string]struct{}{}
+	ctrls := strings.Builder{}
 	for _, name := range controllers {
-		requiredControllers[string(name)] = struct{}{}
+		ctrls.WriteString(fmt.Sprintf("+%s ", name))
 	}
-	if err := ensureRootControllerAreEnabled(requiredControllers); err != nil {
+	ctrlsToEnable := ctrls.String()
+
+	// 2. Ensure that given controllers are enabled on root level
+	rootCtrlPath := filepath.Join(PseudoFsPrefix, controllersFileName)
+	err = writeFile(rootCtrlPath, ctrlsToEnable, os.O_WRONLY|os.O_TRUNC)
+	if err != nil {
 		return err
 	}
 
 	// 3. Enable controllers on child level
-	ctrls := strings.Builder{}
-	for _, name := range controllers {
-		// NOTE: new line will be added at the end of the file, but that's ok.
-		ctrls.WriteString(fmt.Sprintf("+%s\n", name))
-	}
-
 	childCtrlPath := filepath.Join(dir, controllersFileName)
-	err = writeFile(childCtrlPath, ctrls.String(), os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+	err = writeFile(childCtrlPath, ctrlsToEnable, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
 	if err != nil {
 		return err
 	}
@@ -106,11 +103,26 @@ func BootstrapChild(groupPath string, resources Resources) error {
 		return err
 	}
 
+	type MultiEntry interface {
+		Items() []string
+	}
+
 	for name, val := range encoded {
 		fpath := filepath.Join(dir, name)
-		err := writeFile(fpath, fmt.Sprintf("%v", val), os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
-		if err != nil {
-			return err
+
+		switch v := val.(type) {
+		case MultiEntry:
+			for _, item := range v.Items() {
+				err := writeFile(fpath, fmt.Sprintf("%v", item), os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+				if err != nil {
+					return err
+				}
+			}
+		default:
+			err := writeFile(fpath, fmt.Sprintf("%v", v), os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -132,43 +144,14 @@ func createCgroupDir(groupPath string) (string, error) {
 	if !strings.HasPrefix(gpath, PseudoFsPrefix) {
 		gpath = filepath.Join(PseudoFsPrefix, gpath)
 	}
-	return gpath, fs.Mkdir(gpath, 0755)
-}
 
-func ensureRootControllerAreEnabled(requiredControllersIndex map[string]struct{}) error {
-	rootCtrlPath := filepath.Join(PseudoFsPrefix, controllersFileName)
-	file, err := fs.OpenFile(rootCtrlPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
-	if err != nil {
-		return err
+	_, err := os.Stat(gpath)
+	switch {
+	case err == nil:
+		return gpath, nil
+	case os.IsNotExist(err):
+		return gpath, fs.Mkdir(gpath, 0755)
+	default:
+		return "", err
 	}
-	defer file.Close()
-
-	var outControllers []string
-	removeSign := strings.NewReplacer("+", "", "-", "")
-	scanner := bufio.NewScanner(file)
-
-	// find controller which should be preserved
-	for scanner.Scan() {
-		line := scanner.Text()
-		gotCtrl := removeSign.Replace(line)
-		if _, found := requiredControllersIndex[gotCtrl]; found {
-			// might be conflicting
-			continue
-		}
-		outControllers = append(outControllers, gotCtrl)
-	}
-
-	for name := range requiredControllersIndex {
-		outControllers = append(outControllers, fmt.Sprintf("+%s", name))
-	}
-
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-
-	_, err = file.WriteString(strings.Join(outControllers, "\n"))
-	if err != nil {
-		return err
-	}
-	return nil
 }

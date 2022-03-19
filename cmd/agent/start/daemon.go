@@ -6,13 +6,15 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/mszostok/job-runner/internal/shutdown"
+	"github.com/mszostok/job-runner/pkg/cgroup"
 	"github.com/mszostok/job-runner/pkg/file"
 	"github.com/mszostok/job-runner/pkg/job"
 	"github.com/mszostok/job-runner/pkg/job/repo"
 )
 
 const (
-	tenant = "testing"
+	tenant           = "testing"
+	daemonCGroupPath = "LPR"
 )
 
 // NewDaemon returns a new cobra.Command for starting main process.
@@ -23,6 +25,11 @@ func NewDaemon() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			jobName := args[0]
+
+			err := cgroup.BootstrapParent(daemonCGroupPath, cgroup.MemoryController, cgroup.CPUController, cgroup.IOController, cgroup.CPUSetController)
+			if err != nil {
+				return err
+			}
 
 			flog, err := file.NewLogger()
 			if err != nil {
@@ -46,7 +53,7 @@ func NewDaemon() *cobra.Command {
 				Tenant:  tenant,
 				Name:    jobName,
 				Command: "sh",
-				Args:    []string{"-c", "sleep 1 && echo $MOTTO"},
+				Args:    []string{"-c", "sleep 60 && echo $MOTTO"},
 				Env:     []string{"MOTTO=hakuna_matata"},
 			})
 			if err != nil {

@@ -6,7 +6,7 @@ import (
 
 var DefaultProcResources = cgroup.Resources{
 	IO: &cgroup.IO{
-		Max: []cgroup.IOMax{
+		Max: cgroup.IOMax{
 			{
 				Type:  cgroup.ReadIOPS,
 				Major: 8,       // device major

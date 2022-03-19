@@ -2,7 +2,6 @@ package file
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -54,7 +53,6 @@ type ReleaseSinkFn func() error
 
 func (l *Logger) NewSink(name string) (io.Writer, ReleaseSinkFn, error) {
 	path := l.dst(name)
-	fmt.Println(path)
 	f, err := l.filesystem.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, filePerm)
 	switch {
 	case err == nil:

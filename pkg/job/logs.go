@@ -15,7 +15,7 @@ func ForwardStreamLogs(ctx context.Context, w io.Writer, stream *StreamLogsOutpu
 			if !ok { // out closed, no need to watch for new messages
 				return nil
 			}
-			fmt.Fprintf(w, "%s", msg)
+			fmt.Fprintf(w, "%s", msg) // assumption that it UTF-8
 		case err := <-stream.Error:
 			if err == io.EOF {
 				return nil

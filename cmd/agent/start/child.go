@@ -27,7 +27,6 @@ func NewChild() *cobra.Command {
 		Hidden: true,
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := cgroup.AttachCurrentProc(opts.CGroupProcsPath); err != nil {
-				fmt.Println(opts.CGroupProcsPath)
 				return err
 			}
 

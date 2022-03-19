@@ -12,7 +12,8 @@ test-unit-hammer: ## Execute hammer tests in the project to spot eventual test i
 	go test -count=100 -short ./...
 .PHONY: test-unit-hammer
 
-test-cover-html: test-unit ## Generate file with unit test coverage data
+test-cover-html: ## Generate file with unit test coverage data
+	go test -v -race -count=1 -coverprofile=./coverage.txt ./...
 	go tool cover -html=./coverage.txt
 .PHONY: test-cover-html
 
