@@ -70,7 +70,7 @@ func BootstrapParent(groupPath string, controllers ...Controller) error {
 
 	ctrls := strings.Builder{}
 	for _, name := range controllers {
-		ctrls.WriteString(fmt.Sprintf("+%s ", name))
+		ctrls.WriteString(name.Enable())
 	}
 	ctrlsToEnable := ctrls.String()
 

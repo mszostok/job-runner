@@ -16,10 +16,12 @@ import (
 	"github.com/mszostok/job-runner/internal/shutdown"
 )
 
+// Ensure on compilation phase, that Logger implements shutdown.ShutdownableService.
 var _ shutdown.ShutdownableService = &Logger{}
 
 const filePerm = 0666
 
+// Logger provides functionality to stream and fetch logs via file.
 type Logger struct {
 	logsDir        string
 	readBufferSize int
@@ -29,6 +31,7 @@ type Logger struct {
 	activeSinks sync.Map
 }
 
+// NewLogger returns a new Logger instance.
 func NewLogger(opts ...Option) (*Logger, error) {
 	watcher, err := NewWatcher()
 	if err != nil {
@@ -51,6 +54,8 @@ func NewLogger(opts ...Option) (*Logger, error) {
 
 type ReleaseSinkFn func() error
 
+// NewSink returns a new file sink.
+// It's up to the caller to release returned Sink when it's not needed anymore.
 func (l *Logger) NewSink(name string) (io.Writer, ReleaseSinkFn, error) {
 	path := l.dst(name)
 	f, err := l.filesystem.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, filePerm)
@@ -73,6 +78,7 @@ func (l *Logger) NewSink(name string) (io.Writer, ReleaseSinkFn, error) {
 	return f, release, nil
 }
 
+// ReadAndFollow reads Job logs and if log file is still in use, start watching it for a new entries.
 func (l *Logger) ReadAndFollow(ctx context.Context, name string) (<-chan []byte, <-chan error, error) {
 	path := l.dst(name)
 	file, err := l.filesystem.Open(path)
@@ -163,6 +169,7 @@ func (l *Logger) ReadAndFollow(ctx context.Context, name string) (<-chan []byte,
 	return sink, issues, nil
 }
 
+// Shutdown removes all watches and closes the events channels.
 func (l *Logger) Shutdown() error {
 	return l.watcher.Shutdown()
 }

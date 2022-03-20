@@ -4,11 +4,20 @@ import (
 	"github.com/mszostok/job-runner/pkg/cgroup"
 )
 
+// DefaultProcResources describe default resources' limits set by Agent.
+// TODO(simplification): make me configurable
 var DefaultProcResources = cgroup.Resources{
 	IO: &cgroup.IO{
+		// Max represent max IO ops. If a given type is specified more than once, the last one takes precedence.
 		Max: cgroup.IOMax{
 			{
-				Type:  cgroup.ReadIOPS,
+				Type:  cgroup.WriteIOPS,
+				Major: 8,       // device major
+				Minor: 0,       // device minor
+				Rate:  1048576, // 1MB (1024^2)
+			},
+			{
+				Type:  cgroup.WriteBPS,
 				Major: 8,       // device major
 				Minor: 0,       // device minor
 				Rate:  1048576, // 1MB (1024^2)

@@ -3,6 +3,7 @@ package start
 import (
 	"log"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 
 	"github.com/mszostok/job-runner/internal/shutdown"
@@ -17,16 +18,23 @@ const (
 	daemonCGroupPath = "LPR"
 )
 
-// NewDaemon returns a new cobra.Command for starting main process.
+// NewDaemon returns a new cobra.Command for starting daemon process.
 func NewDaemon() *cobra.Command {
+	var (
+		jobName string
+		envs    []string
+	)
 	cmd := &cobra.Command{
 		Use:   "daemon",
 		Short: "Starts a long living Agent process.",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(c *cobra.Command, args []string) error {
-			jobName := args[0]
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(c *cobra.Command, args []string) (err error) {
+			name, arg, err := extractCommandToExecute(c, args)
+			if err != nil {
+				return err
+			}
 
-			err := cgroup.BootstrapParent(daemonCGroupPath, cgroup.MemoryController, cgroup.CPUController, cgroup.IOController, cgroup.CPUSetController)
+			err = cgroup.BootstrapParent(daemonCGroupPath, cgroup.MemoryController, cgroup.CPUController, cgroup.IOController, cgroup.CPUSetController)
 			if err != nil {
 				return err
 			}
@@ -45,6 +53,16 @@ func NewDaemon() *cobra.Command {
 			shutdownManager.Register(flog)
 			shutdownManager.Register(svc)
 
+			defer func() {
+				shErr := shutdownManager.Shutdown()
+				if shErr != nil {
+					log.Printf("Graceful shutdown unsuccessful: %v", shErr)
+					err = multierror.Append(err, shErr).ErrorOrNil()
+					return
+				}
+				log.Println("Successful graceful shutdown")
+			}()
+
 			// TODO(server): Implement gRPC server that is long-living and can handle `command` execution.
 			// For now just showcase that run + logs work.
 
@@ -52,9 +70,9 @@ func NewDaemon() *cobra.Command {
 			_, err = svc.Run(c.Context(), job.RunInput{
 				Tenant:  tenant,
 				Name:    jobName,
-				Command: "sh",
-				Args:    []string{"-c", "sleep 60 && echo $MOTTO"},
-				Env:     []string{"MOTTO=hakuna_matata"},
+				Command: name,
+				Args:    arg,
+				Env:     envs,
 			})
 			if err != nil {
 				return err
@@ -70,18 +88,14 @@ func NewDaemon() *cobra.Command {
 			}
 			log.Println("Streaming finished")
 
-			log.Println("Waiting for ctrl+c to execute Agent graceful shutdown")
+			log.Println("Waiting for TERM signal to execute Agent graceful shutdown")
 			<-c.Context().Done()
 
-			if err := shutdownManager.Shutdown(); err != nil {
-				log.Printf("Graceful shutdown unsuccessful: %v", err)
-				return err
-			}
-
-			log.Println("Successful graceful shutdown")
 			return nil
 		},
 	}
 
+	cmd.Flags().StringSliceVarP(&envs, "env", "e", []string{}, `Specifies the environment of the process. Each entry is of the form "key=value".`)
+	cmd.Flags().StringVarP(&jobName, "name", "n", "test-v1", `Specifies the environment of the process. Each entry is of the form "key=value".`)
 	return cmd
 }

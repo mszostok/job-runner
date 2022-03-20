@@ -108,12 +108,12 @@ func (w *Watcher) notify() {
 
 			w.mu.RLock()
 			for _, observer := range w.activeWatchers[e.Name] {
-				switch d := event(e); {
-				case d.Is(fsnotify.Write):
+				switch v := event(e); {
+				case v.Is(fsnotify.Write):
 					w.trySend(observer.Events, fsnotify.Write)
-				case d.Is(fsnotify.Remove):
+				case v.Is(fsnotify.Remove):
 					w.trySend(observer.Events, fsnotify.Remove)
-				case d.Is(fsnotify.Rename):
+				case v.Is(fsnotify.Rename):
 					w.trySend(observer.Events, fsnotify.Rename)
 				}
 			}

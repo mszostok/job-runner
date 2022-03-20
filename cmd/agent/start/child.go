@@ -1,7 +1,6 @@
 package start
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 
@@ -24,23 +23,21 @@ func NewChild() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:    `child --cgroup-procs-path=path [--env="key=value"] -- [COMMAND] [args...]`,
 		Short:  "Starts a child process of running Agent daemon. This is used internally by Agent",
-		Hidden: true,
+		Hidden: true, // only for internal usage
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := cgroup.AttachCurrentProc(opts.CGroupProcsPath); err != nil {
 				return err
 			}
 
-			argsLenAtDash := c.ArgsLenAtDash()
-			// Check if there are args after dash (--)
-			if argsLenAtDash == -1 || len(args) < 1 {
-				return fmt.Errorf("wrong input format, please specify cmd and args after dash (--)")
+			name, arg, err := extractCommandToExecute(c, args)
+			if err != nil {
+				return err
 			}
-			toRun := args[argsLenAtDash:]
 
 			// This needs to be allowed, but we need to be aware of potential risk:
 			//   https://github.com/securego/gosec/issues/204#issuecomment-384474356
 			// #nosec G204
-			cmd := exec.Command(toRun[0], toRun[1:]...)
+			cmd := exec.Command(name, arg...)
 			cmd.Env = opts.Env
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stdout

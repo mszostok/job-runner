@@ -1,5 +1,13 @@
 .DEFAULT_GOAL: test-unit
 
+############
+# Building #
+############
+
+build-agent: ## Build agent binary
+	go build -o ./bin/agent ./cmd/agent
+.PHONY: build-agent
+
 ###########
 # Testing #
 ###########
