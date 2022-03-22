@@ -35,10 +35,11 @@ func (s *ParentService) Shutdown() error {
 	// trigger shutdown
 	for _, child := range s.children {
 		wg.Add(1)
-		go func(child ShutdownableService) {
+		child := child
+		go func() {
 			childShutdownFeedback <- child.Shutdown()
 			wg.Done()
-		}(child)
+		}()
 	}
 
 	// Wait for all children to shut down.

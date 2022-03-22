@@ -63,7 +63,7 @@ func TestInsert_ValidateInput(t *testing.T) {
 				// given
 				svc := repo.NewInMemory()
 
-				job := repo.JobDefinition{
+				job := &repo.JobDefinition{
 					Name:   tc.name,
 					Tenant: tc.tenant,
 					Cmd:    tc.job,
@@ -86,7 +86,7 @@ func TestInsert_ValidateInput(t *testing.T) {
 
 		// when
 		err := svc.Insert(repo.InsertInput{
-			Job: repo.JobDefinition{
+			Job: &repo.JobDefinition{
 				Name:   "foo",
 				Tenant: "bar",
 				Cmd:    exec.Command("test"),
@@ -104,7 +104,7 @@ func TestStorageLifecycle(t *testing.T) {
 	// given
 	svc := repo.NewInMemory()
 
-	job := repo.JobDefinition{
+	job := &repo.JobDefinition{
 		Name:   "foo",
 		Tenant: "bar",
 		Cmd:    exec.Command("test"),
@@ -129,10 +129,11 @@ func TestStorageLifecycle(t *testing.T) {
 	require.NoError(t, err)
 
 	// then
-	expUpdatedJob := job
+	expUpdatedJob := *job
 	expUpdatedJob.Status = "UPDATED"
 	expUpdatedJob.ExitCode = 42
 	out, err = svc.Get(repo.GetInput{Name: job.Name})
 	require.NoError(t, err)
-	assert.EqualValues(t, expUpdatedJob, out.Job)
+	require.NotNil(t, out.Job)
+	assert.EqualValues(t, expUpdatedJob, *out.Job)
 }

@@ -25,7 +25,7 @@ type JobDefinition struct {
 type Repository struct {
 	// TODO(simplification): this should be an external storage, e.g Redis.
 	// There could be also some shim driver so the backend can be easily swappable.
-	store map[string]JobDefinition
+	store map[string]*JobDefinition
 	mu    sync.RWMutex
 
 	validate func(in interface{}) error
@@ -34,7 +34,7 @@ type Repository struct {
 // NewInMemory creates new in memory Repository instance.
 func NewInMemory() *Repository {
 	return &Repository{
-		store: map[string]JobDefinition{},
+		store: map[string]*JobDefinition{},
 		validate: func(in interface{}) error {
 			_, err := govalidator.ValidateStruct(in)
 			return err
@@ -43,7 +43,7 @@ func NewInMemory() *Repository {
 }
 
 type InsertInput struct {
-	Job JobDefinition
+	Job *JobDefinition
 }
 
 // Insert inserts a new Cmd to the storage. It is thread safe.
@@ -70,7 +70,7 @@ type GetInput struct {
 
 // GetOutput contains parameters returned from Get operation on repository.
 type GetOutput struct {
-	Job JobDefinition
+	Job *JobDefinition
 }
 
 // Get returns job from repository that matches given constrains. It is thread safe.

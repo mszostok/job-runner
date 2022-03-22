@@ -10,10 +10,12 @@ import (
 
 var _ shutdown.ShutdownableService = &Watcher{}
 
+type activeWatchersCollection map[string]map[*Observer]struct{}
+
 type Watcher struct {
 	watcher        *fsnotify.Watcher
 	mu             sync.RWMutex
-	activeWatchers map[string][]*Observer
+	activeWatchers activeWatchersCollection
 }
 
 type Observer struct {
@@ -31,7 +33,7 @@ func NewWatcher() (*Watcher, error) {
 	w := &Watcher{
 		mu:             sync.RWMutex{},
 		watcher:        watcher,
-		activeWatchers: map[string][]*Observer{},
+		activeWatchers: activeWatchersCollection{},
 	}
 	go w.notify()
 
@@ -52,7 +54,10 @@ func (w *Watcher) AddObserver(path string) (*Observer, error) {
 		Errors: make(chan error),
 	}
 
-	w.activeWatchers[path] = append(w.activeWatchers[path], observer)
+	if _, found := w.activeWatchers[path]; !found {
+		w.activeWatchers[path] = map[*Observer]struct{}{}
+	}
+	w.activeWatchers[path][observer] = struct{}{}
 
 	return observer, nil
 }
@@ -68,7 +73,7 @@ func (w *Watcher) RemoveObserver(item *Observer) error {
 
 	if len(observers) > 1 {
 		// there are others
-		w.activeWatchers[item.path] = w.filterOutObserver(observers, item)
+		delete(w.activeWatchers[item.path], item)
 		return nil
 	}
 
@@ -85,19 +90,6 @@ func (w *Watcher) Shutdown() error {
 	return w.watcher.Close()
 }
 
-// Based on: https://github.com/golang/go/wiki/SliceTricks#filter-in-place
-func (w *Watcher) filterOutObserver(observers []*Observer, toRemove *Observer) []*Observer {
-	n := 0
-	for _, item := range observers {
-		if item != toRemove {
-			observers[n] = item
-			n++
-		}
-	}
-	observers = observers[:n]
-	return observers
-}
-
 func (w *Watcher) notify() {
 	for {
 		select {
@@ -107,7 +99,7 @@ func (w *Watcher) notify() {
 			}
 
 			w.mu.RLock()
-			for _, observer := range w.activeWatchers[e.Name] {
+			for observer := range w.activeWatchers[e.Name] {
 				switch v := event(e); {
 				case v.Is(fsnotify.Write):
 					w.trySend(observer.Events, fsnotify.Write)
@@ -126,7 +118,7 @@ func (w *Watcher) notify() {
 
 			w.mu.RLock()
 			for _, observers := range w.activeWatchers {
-				for _, observer := range observers {
+				for observer := range observers {
 					observer.Errors <- err
 				}
 			}

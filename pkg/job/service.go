@@ -67,7 +67,7 @@ func (l *Service) Run(_ context.Context, in RunInput) (*RunOutput, error) {
 		return nil, errors.Wrap(err, "while wrapping for child proc execution")
 	}
 
-	job := repo.JobDefinition{
+	job := &repo.JobDefinition{
 		Name:        in.Name,
 		Tenant:      in.Tenant,
 		Cmd:         cmd,
@@ -169,7 +169,7 @@ func (l *Service) Shutdown() error {
 	return nil
 }
 
-func (l *Service) watchRunningProcess(job repo.JobDefinition, release func() error) {
+func (l *Service) watchRunningProcess(job *repo.JobDefinition, release func() error) {
 	defer func() { // release file used for logs (stdout, stderr)
 		// TODO(simplification): handle error gracefully
 		_ = release()

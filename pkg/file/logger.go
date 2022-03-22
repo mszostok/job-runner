@@ -12,7 +12,6 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/afero"
 
-	"github.com/mszostok/job-runner/internal/ctxutil"
 	"github.com/mszostok/job-runner/internal/shutdown"
 )
 
@@ -90,8 +89,12 @@ func (l *Logger) ReadAndFollow(ctx context.Context, name string) (<-chan []byte,
 		sink   = make(chan []byte)
 		issues = make(chan error)
 	)
+
+	closeFile := newDoOnlyOnce(file.Close)
+
 	cleanup := func() {
-		if err := file.Close(); err != nil {
+		closeFile.Close()
+		if err := closeFile.Err(); err != nil {
 			issues <- err
 		}
 
@@ -100,10 +103,18 @@ func (l *Logger) ReadAndFollow(ctx context.Context, name string) (<-chan []byte,
 	}
 
 	go func() {
+		select {
+		case <-ctx.Done():
+		case <-sink:
+		}
+		closeFile.Close()
+	}()
+
+	go func() {
 		defer cleanup()
 
 		// 1. Drain file till EOF.
-		if err := l.drainFileIgnoreEOF(ctx, file, sink); err != nil {
+		if err := l.drainFileIgnoreEOF(file, sink); err != nil {
 			issues <- err
 			return
 		}
@@ -149,7 +160,7 @@ func (l *Logger) ReadAndFollow(ctx context.Context, name string) (<-chan []byte,
 				}
 				switch event {
 				case fsnotify.Write:
-					if err := l.drainFileIgnoreEOF(ctx, file, sink); err != nil {
+					if err := l.drainFileIgnoreEOF(file, sink); err != nil {
 						issues <- err
 						return
 					}
@@ -178,18 +189,16 @@ func (l *Logger) dst(name string) string {
 	return filepath.Join(l.logsDir, name)
 }
 
-func (l *Logger) drainFileIgnoreEOF(ctx context.Context, file io.Reader, sink chan<- []byte) error {
+func (l *Logger) drainFileIgnoreEOF(file io.Reader, sink chan<- []byte) error {
 	buff := make([]byte, l.readBufferSize)
 
 	for {
-		if ctxutil.ShouldExit(ctx) { // consumer gone
-			return ctx.Err()
-		}
-
 		n, err := file.Read(buff)
 		switch {
 		case err == nil:
-			sink <- buff[:n]
+			out := make([]byte, n)
+			copy(out, buff[:n])
+			sink <- out
 		case err == io.EOF:
 			// This EOF is ignored, as later we want to watch this file for changes.
 			return nil

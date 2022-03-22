@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/spf13/afero"
@@ -17,7 +16,7 @@ var fs = afero.NewOsFs()
 const (
 	// PseudoFsPrefix represents cgroup pseudo-filesystem prefix.
 	PseudoFsPrefix = "/sys/fs/cgroup/"
-	// v2Indicator represents a file name which indicates that cgropu v2 is enabled on host.
+	// v2Indicator represents a file name which indicates that cgroup v2 is enabled on host.
 	v2Indicator = "/sys/fs/cgroup/cgroup.controllers"
 	// Procs represents a file name which has the PIDs of all processes belonging to the cgroup. One per line.
 	procsFileName = "cgroup.procs"
@@ -44,7 +43,7 @@ func AttachCurrentProc(cgroup string) error {
 		return err
 	}
 	path := filepath.Join(cgroup, procsFileName)
-	return writeFile(path, strconv.Itoa(os.Getpid()), os.O_WRONLY|os.O_TRUNC)
+	return writeFile(path, fmt.Sprintf("%d\n", os.Getpid()), os.O_WRONLY|os.O_TRUNC)
 }
 
 // ValidateGroupPath verifies the cgroup path format.
