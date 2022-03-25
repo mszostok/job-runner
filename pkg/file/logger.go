@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/fsnotify/fsnotify"
@@ -58,11 +59,10 @@ type ReleaseSinkFn func() error
 func (l *Logger) NewSink(name string) (io.Writer, ReleaseSinkFn, error) {
 	path := l.dst(name)
 	f, err := l.filesystem.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, filePerm)
-	switch {
-	case err == nil:
-	case errors.Is(err, fs.ErrExist):
-		return nil, nil, NewConflictError(name)
-	default:
+	if err != nil {
+		if errors.Is(err, fs.ErrExist) {
+			return nil, nil, NewConflictError(name)
+		}
 		return nil, nil, errors.Wrap(err, "while opening file")
 	}
 
@@ -80,7 +80,7 @@ func (l *Logger) NewSink(name string) (io.Writer, ReleaseSinkFn, error) {
 // ReadAndFollow reads Job logs and if log file is still in use, start watching it for a new entries.
 func (l *Logger) ReadAndFollow(ctx context.Context, name string) (<-chan []byte, <-chan error, error) {
 	path := l.dst(name)
-	file, err := l.filesystem.Open(path)
+	file, err := l.OpenWithReadDeadliner(path)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "while opening log file")
 	}
@@ -90,11 +90,8 @@ func (l *Logger) ReadAndFollow(ctx context.Context, name string) (<-chan []byte,
 		issues = make(chan error)
 	)
 
-	closeFile := newDoOnlyOnce(file.Close)
-
 	cleanup := func() {
-		closeFile.Close()
-		if err := closeFile.Err(); err != nil {
+		if err := file.Close(); err != nil {
 			issues <- err
 		}
 
@@ -105,9 +102,12 @@ func (l *Logger) ReadAndFollow(ctx context.Context, name string) (<-chan []byte,
 	go func() {
 		select {
 		case <-ctx.Done():
+			_ = file.SetReadDeadline(time.Now()) // release currently-blocked Read call
+			// TODO: log error, we cannot push it to `issues` without proper synchronization and ensuring that
+			// channel is still open.
 		case <-sink:
+			// nop, just release the goroutine
 		}
-		closeFile.Close()
 	}()
 
 	go func() {
@@ -187,6 +187,30 @@ func (l *Logger) Shutdown() error {
 
 func (l *Logger) dst(name string) string {
 	return filepath.Join(l.logsDir, name)
+}
+
+// ReadCloseDeadliner represents a file in the filesystem.
+type ReadCloseDeadliner interface {
+	io.ReadCloser
+
+	// SetReadDeadline sets the deadline for future Read calls and any
+	// currently-blocked Read call.
+	// A zero value for t means Read will not time out.
+	SetReadDeadline(t time.Time) error
+}
+
+func (l *Logger) OpenWithReadDeadliner(path string) (ReadCloseDeadliner, error) {
+	file, err := l.filesystem.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	out, ok := file.(ReadCloseDeadliner)
+	if !ok {
+		_ = file.Close()
+		return nil, errors.New("filesystem cannot open file with 'SetReadDeadline' support")
+	}
+
+	return out, nil
 }
 
 func (l *Logger) drainFileIgnoreEOF(file io.Reader, sink chan<- []byte) error {

@@ -3,7 +3,6 @@ package start
 import (
 	"log"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 
 	"github.com/mszostok/job-runner/internal/shutdown"
@@ -28,7 +27,11 @@ func NewDaemon() *cobra.Command {
 		Use:   "daemon",
 		Short: "Starts a long living Agent process.",
 		Args:  cobra.MinimumNArgs(1),
-		RunE: func(c *cobra.Command, args []string) (err error) {
+		RunE: func(c *cobra.Command, args []string) error {
+			if err := cgroup.CheckCgroupV2Enabled(); err != nil {
+				return err
+			}
+
 			name, arg, err := extractCommandToExecute(c, args)
 			if err != nil {
 				return err
@@ -54,10 +57,9 @@ func NewDaemon() *cobra.Command {
 			shutdownManager.Register(svc)
 
 			defer func() {
-				shErr := shutdownManager.Shutdown()
-				if shErr != nil {
-					log.Printf("Graceful shutdown unsuccessful: %v", shErr)
-					err = multierror.Append(err, shErr).ErrorOrNil()
+				err := shutdownManager.Shutdown()
+				if err != nil {
+					log.Printf("Graceful shutdown unsuccessful: %v", err)
 					return
 				}
 				log.Println("Successful graceful shutdown")

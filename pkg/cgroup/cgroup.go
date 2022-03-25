@@ -10,8 +10,13 @@ import (
 	"github.com/spf13/afero"
 )
 
-// fs is used to mock filesystem in unit tests
-var fs = afero.NewOsFs()
+var (
+	// ErrCgroupV2NotSupported indicates that the cgroup in version 2 is not enabled on a given OS.
+	ErrCgroupV2NotSupported = errors.New("cgroup v2 is not enabled on OS")
+
+	// fs is used to mock filesystem in unit tests
+	fs = afero.NewOsFs()
+)
 
 const (
 	// PseudoFsPrefix represents cgroup pseudo-filesystem prefix.
@@ -24,17 +29,16 @@ const (
 	controllersFileName = "cgroup.subtree_control"
 )
 
-// IsCgroupV2Enabled returns true if cgroup v2 is enabled.
-func IsCgroupV2Enabled() (bool, error) {
+// CheckCgroupV2Enabled returns nil if cgroup v2 is enabled.
+func CheckCgroupV2Enabled() error {
 	_, err := fs.Stat(v2Indicator)
-	switch {
-	case err == nil:
-		return true, nil
-	case errors.Is(err, os.ErrNotExist):
-		return false, nil
-	default:
-		return false, err
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return ErrCgroupV2NotSupported
+		}
+		return err
 	}
+	return nil
 }
 
 // AttachCurrentProc attaches current process PID to a given cgroup.
@@ -69,7 +73,7 @@ func BootstrapParent(groupPath string, controllers ...Controller) error {
 
 	ctrls := strings.Builder{}
 	for _, name := range controllers {
-		ctrls.WriteString(name.Enable())
+		ctrls.WriteString(fmt.Sprintf("+%s ", name))
 	}
 	ctrlsToEnable := ctrls.String()
 
@@ -145,12 +149,12 @@ func createCgroupDir(groupPath string) (string, error) {
 	}
 
 	_, err := os.Stat(gpath)
-	switch {
-	case err == nil:
-		return gpath, nil
-	case os.IsNotExist(err):
-		return gpath, fs.Mkdir(gpath, 0755)
-	default:
+	if err != nil {
+		if os.IsNotExist(err) {
+			return gpath, fs.Mkdir(gpath, 0755)
+		}
 		return "", err
 	}
+
+	return gpath, nil
 }

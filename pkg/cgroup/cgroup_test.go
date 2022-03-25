@@ -23,11 +23,10 @@ func TestIsCgroupV2Enabled(t *testing.T) {
 		require.NoError(t, err)
 
 		// when
-		enabled, err := cgroup.IsCgroupV2Enabled()
+		err = cgroup.CheckCgroupV2Enabled()
 
 		// then
-		require.NoError(t, err)
-		assert.True(t, enabled)
+		assert.NoError(t, err)
 	})
 
 	t.Run("Should indicate that cgroup v2 is disabled", func(t *testing.T) {
@@ -37,11 +36,10 @@ func TestIsCgroupV2Enabled(t *testing.T) {
 		defer revert()
 
 		// when
-		enabled, err := cgroup.IsCgroupV2Enabled()
+		err := cgroup.CheckCgroupV2Enabled()
 
 		// then
-		require.NoError(t, err)
-		assert.False(t, enabled)
+		assert.ErrorIs(t, err, cgroup.ErrCgroupV2NotSupported)
 	})
 
 	t.Run("Should indicate that cgroup v2 is disabled", func(t *testing.T) {
@@ -54,11 +52,10 @@ func TestIsCgroupV2Enabled(t *testing.T) {
 		defer revert()
 
 		// when
-		enabled, err := cgroup.IsCgroupV2Enabled()
+		err := cgroup.CheckCgroupV2Enabled()
 
 		// then
 		assert.ErrorIs(t, err, tFS.StatError)
-		assert.False(t, enabled)
 	})
 }
 

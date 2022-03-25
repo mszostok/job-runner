@@ -9,20 +9,12 @@ import (
 
 func main() {
 	rootCmd := NewRoot()
-	ctx, cancel := cancelableContext()
+
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := rootCmd.ExecuteContext(ctx); err != nil {
-		os.Exit(1)
-	}
-}
-
-// cancelableContext returns context that is canceled when stop signal is received
-func cancelableContext() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
 	go func() {
 		select {
 		case <-ctx.Done():
@@ -31,5 +23,7 @@ func cancelableContext() (context.Context, context.CancelFunc) {
 		}
 	}()
 
-	return ctx, cancel
+	if err := rootCmd.ExecuteContext(ctx); err != nil {
+		os.Exit(1)
+	}
 }
