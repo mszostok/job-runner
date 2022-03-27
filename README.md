@@ -51,3 +51,21 @@ To automatically fix detected lint issues, execute:
 ```bash
 make fix-lint-issues
 ```
+
+## Generators
+
+### Generate code from Protocol Buffers schema
+
+Each time the [Protocol Buffers schema](./proto/job_runner.proto) changes, you need to regenerate Go code. To do this, run:
+
+```bash
+make gen-grpc-resources
+```
+
+### Generate Client and Agent certificates
+
+To generate all required certificates into [`certs`](./certs) directory, run:
+
+```bash
+make gen-certs
+```

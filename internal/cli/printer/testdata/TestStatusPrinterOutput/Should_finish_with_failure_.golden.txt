@@ -1,0 +1,3 @@
+ • Should finish with failure 
+ ✗ Should finish with failure 
+

@@ -121,6 +121,14 @@ func TestStorageLifecycle(t *testing.T) {
 	assert.EqualValues(t, job, out.Job)
 
 	// when
+	tenantOut, err := svc.GetJobTenant(repo.GetJobTenantInput{Name: job.Name})
+
+	// then
+	require.NoError(t, err)
+	assert.EqualValues(t, tenantOut.Name, job.Name)
+	assert.EqualValues(t, tenantOut.Tenant, job.Tenant)
+
+	// when
 	err = svc.Update(repo.UpdateInput{
 		Name:     job.Name,
 		Status:   "UPDATED",

@@ -4,11 +4,20 @@ import "google/protobuf/duration.proto";
 import "github.com/gogo/protobuf/gogoproto/gogo.proto";
 
 package job_runner;
+option go_package = "pkg/api/grpc";
+
+// Enable custom Marshal method.
+option (gogoproto.marshaler_all) = true;
+// Enable custom Unmarshal method.
+option (gogoproto.unmarshaler_all) = true;
+// Enable custom Size method (Required by Marshal and Unmarshal).
+option (gogoproto.sizer_all) = true;
 
 enum Status {
 	RUNNING = 0;
 	FAILED = 1;
-	SUCCEEDED = 2;
+	TERMINATED = 2;
+	SUCCEEDED = 3;
 }
 
 message RunRequest {
@@ -64,10 +73,19 @@ message StopResponse {
 	int32 exit_code = 2;
 }
 
+message PingRequest {
+	string message = 1;
+}
+
+message PingResponse {
+	string message = 1;
+}
+
 // JobService provides functionality for managing Jobs
 service JobService {
 	rpc Run(RunRequest) returns (RunResponse){}
 	rpc Get(GetRequest) returns (GetResponse){}
 	rpc Stop(StopRequest) returns (StopResponse){}
 	rpc StreamLogs(StreamLogsRequest) returns (stream StreamLogsResponse) {};
+	rpc Ping(PingRequest) returns (PingResponse) {};
 }

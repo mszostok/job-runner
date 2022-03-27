@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/mszostok/job-runner/internal/cli"
 	"github.com/mszostok/job-runner/pkg/cgroup"
 )
 
@@ -29,7 +30,7 @@ func NewChild() *cobra.Command {
 				return err
 			}
 
-			name, arg, err := extractCommandToExecute(c, args)
+			name, arg, err := cli.ExtractExecCommandAfterDash(c, args)
 			if err != nil {
 				return err
 			}

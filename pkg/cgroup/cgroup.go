@@ -20,9 +20,9 @@ var (
 
 const (
 	// PseudoFsPrefix represents cgroup pseudo-filesystem prefix.
-	PseudoFsPrefix = "/sys/fs/cgroup/"
+	PseudoFsPrefix = "/tmp/dupa/"
 	// v2Indicator represents a file name which indicates that cgroup v2 is enabled on host.
-	v2Indicator = "/sys/fs/cgroup/cgroup.controllers"
+	v2Indicator = "/tmp/dupa/cgroup.controllers"
 	// Procs represents a file name which has the PIDs of all processes belonging to the cgroup. One per line.
 	procsFileName = "cgroup.procs"
 	// controllers represents a file name which specifies enabled/disabled controllers for a given child group.
@@ -59,7 +59,7 @@ func ValidateGroupPath(in string) error {
 }
 
 // BootstrapParent bootstraps a parent group where a proper controllers are enabled for children.
-// TODO(simplification): it works only 1 level deep - /sys/fs/cgroup/{PARENT}/
+// TODO(simplification): it works only 1 level deep - /tmp/dupa/{PARENT}/
 func BootstrapParent(groupPath string, controllers ...Controller) error {
 	// 1. Create parent directory
 	dir, err := createCgroupDir(groupPath)

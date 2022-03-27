@@ -8,6 +8,10 @@ build-agent: ## Build agent binary
 	go build -o ./bin/agent ./cmd/agent
 .PHONY: build-agent
 
+build-lpr-cli: ## Build client binary
+	go build -o ./bin/lpr ./cmd/cli
+.PHONY: build-agent
+
 ###########
 # Testing #
 ###########
@@ -17,7 +21,7 @@ test-unit: ## Execute unit tests
 .PHONY: test-unit
 
 test-unit-hammer: ## Execute hammer tests in the project to spot eventual test instability
-	go test -count=100 -short ./...
+	go test -count=100 -short -failfast ./...
 .PHONY: test-unit-hammer
 
 test-cover-html: ## Generate file with unit test coverage data
@@ -36,6 +40,18 @@ test-lint:
 fix-lint-issues:
 	LINT_FORCE_FIX=true ./hack/run-lint.sh
 .PHONY: fix-lint
+
+##############
+# Generating #
+##############
+
+gen-grpc-resources: ## Generate gRPC + ProtoBuf Go code for client and server
+	./hack/gen-grpc-resources.sh
+.PHONY: gen-proto-source-code
+
+gen-certs: ## Generate certificates for client and server
+	./hack/gen-certs.sh
+.PHONY: gen-proto-source-code
 
 #############
 # Other     #

@@ -39,7 +39,8 @@ func NewLogger(opts ...Option) (*Logger, error) {
 	}
 	l := &Logger{
 		// TODO: os.MkdirTemp is better as currently "directory is neither guaranteed to exist nor have accessible permissions".
-		logsDir:        os.TempDir(),
+		//logsDir:        os.TempDir(),
+		logsDir:        "/tmp",
 		filesystem:     afero.NewOsFs(),
 		watcher:        watcher,
 		readBufferSize: 4096,

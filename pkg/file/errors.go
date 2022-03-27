@@ -16,3 +16,6 @@ func NewConflictError(jobName string) *ConflictError {
 func (e ConflictError) Error() string {
 	return fmt.Sprintf("Job name %q is not unique and dedicated log file cannot be created", e.jobName)
 }
+
+// Conflict implements behavior error interface.
+func (e ConflictError) Conflict() {}
