@@ -42,11 +42,7 @@ func NewChild() *cobra.Command {
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stdout
 
-			if err := cmd.Run(); err != nil {
-				return err
-			}
-
-			return nil
+			return cmd.Run()
 		},
 	}
 
