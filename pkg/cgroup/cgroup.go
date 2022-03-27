@@ -12,7 +12,7 @@ import (
 
 var (
 	// ErrCgroupV2NotSupported indicates that the cgroup in version 2 is not enabled on a given OS.
-	ErrCgroupV2NotSupported = errors.New("cgroup v2 is not enabled on OS")
+	ErrCgroupV2NotSupported = errors.New("cgroup v2 is not enabled on OS under /sys/fs/cgroup/, enable it before running daemon")
 
 	// fs is used to mock filesystem in unit tests
 	fs = afero.NewOsFs()
