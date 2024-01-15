@@ -74,7 +74,7 @@ type GetOutput struct {
 }
 
 // Get returns job from repository that matches given constrains. It is thread safe.
-// Returns ErrNotFound when object was not found.
+// Returns NotFoundError when object was not found.
 func (r *Repository) Get(in GetInput) (GetOutput, error) {
 	if err := r.validate(in); err != nil {
 		return GetOutput{}, errors.Wrap(err, "while validating input")
@@ -85,7 +85,7 @@ func (r *Repository) Get(in GetInput) (GetOutput, error) {
 
 	job, found := r.store[in.Name]
 	if !found {
-		return GetOutput{}, ErrNotFound
+		return GetOutput{}, NewNotFoundError(in.Name)
 	}
 
 	return GetOutput{
@@ -104,7 +104,7 @@ type UpdateInput struct {
 // UpdateOutput contains parameters returned from Update operation on repository
 type UpdateOutput struct{}
 
-// Update updates Cmd in repository, returns ErrNotFound in case the object is not found - it's not an upsert.
+// Update updates Cmd in repository, returns NotFoundError in case the object is not found - it's not an upsert.
 // It is thread safe.
 func (r *Repository) Update(in UpdateInput) error {
 	if err := r.validate(in); err != nil {
@@ -116,11 +116,43 @@ func (r *Repository) Update(in UpdateInput) error {
 
 	old, found := r.store[in.Name]
 	if !found {
-		return ErrNotFound
+		return NewNotFoundError(in.Name)
 	}
 	old.Status = in.Status
 	old.ExitCode = in.ExitCode
 	r.store[in.Name] = old
 
 	return nil
+}
+
+// GetJobTenantInput contains parameters necessary to execute GetJobTenant operation on repository.
+type GetJobTenantInput struct {
+	Name string `valid:"required"`
+}
+
+// GetJobTenantOutput contains parameters returned from GetJobTenant operation on repository.
+type GetJobTenantOutput struct {
+	Name   string
+	Tenant string
+}
+
+// GetJobTenant returns Job's tenant, or NotFoundError.
+// It is thread safe.
+func (r *Repository) GetJobTenant(in GetJobTenantInput) (GetJobTenantOutput, error) {
+	if err := r.validate(in); err != nil {
+		return GetJobTenantOutput{}, errors.Wrap(err, "while validating input")
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	job, found := r.store[in.Name]
+	if !found {
+		return GetJobTenantOutput{}, NewNotFoundError(in.Name)
+	}
+
+	return GetJobTenantOutput{
+		Name:   job.Name,
+		Tenant: job.Tenant,
+	}, nil
 }

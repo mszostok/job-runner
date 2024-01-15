@@ -39,7 +39,8 @@ func NewLogger(opts ...Option) (*Logger, error) {
 	}
 	l := &Logger{
 		// TODO: os.MkdirTemp is better as currently "directory is neither guaranteed to exist nor have accessible permissions".
-		logsDir:        os.TempDir(),
+		//logsDir:        os.TempDir(),
+		logsDir:        "/tmp",
 		filesystem:     afero.NewOsFs(),
 		watcher:        watcher,
 		readBufferSize: 4096,
@@ -86,7 +87,7 @@ func (l *Logger) ReadAndFollow(ctx context.Context, name string) (<-chan []byte,
 	}
 
 	var (
-		sink   = make(chan []byte)
+		output = make(chan []byte)
 		issues = make(chan error)
 	)
 
@@ -96,7 +97,7 @@ func (l *Logger) ReadAndFollow(ctx context.Context, name string) (<-chan []byte,
 		}
 
 		close(issues)
-		close(sink)
+		close(output)
 	}
 
 	go func() {
@@ -105,7 +106,7 @@ func (l *Logger) ReadAndFollow(ctx context.Context, name string) (<-chan []byte,
 			_ = file.SetReadDeadline(time.Now()) // release currently-blocked Read call
 			// TODO: log error, we cannot push it to `issues` without proper synchronization and ensuring that
 			// channel is still open.
-		case <-sink:
+		case <-output:
 			// nop, just release the goroutine
 		}
 	}()
@@ -114,11 +115,12 @@ func (l *Logger) ReadAndFollow(ctx context.Context, name string) (<-chan []byte,
 		defer cleanup()
 
 		// 1. Drain file till EOF.
-		if err := l.drainFileIgnoreEOF(file, sink); err != nil {
+		if err := l.drainFileIgnoreEOF(file, output); err != nil {
 			issues <- err
 			return
 		}
 
+		// 2. Check if the log sink - file to which process writes stdout and stderr is still active.
 		closedSink, active := l.activeSinks.Load(path)
 		if !active { // sink not active, no reason to observe it.
 			issues <- io.EOF
@@ -129,7 +131,8 @@ func (l *Logger) ReadAndFollow(ctx context.Context, name string) (<-chan []byte,
 			issues <- errors.New("internal error: got incorrect sink notify type")
 			return
 		}
-		// 2. Add observer for file changes.
+
+		// 3. Add observer for file changes.
 		//    - WRITE - Sends new data. Assumption is that is always an appending action.
 		//              Otherwise, we would need to place with file size and do a proper file seek.
 		//    - DELETE - Sends EOF.
@@ -148,7 +151,11 @@ func (l *Logger) ReadAndFollow(ctx context.Context, name string) (<-chan []byte,
 
 		for {
 			select {
-			case <-closedSinkNotify:
+			case <-closedSinkNotify: // Job finished and released log file. We need it as the `fsnotify` library doesn't support `Close` event
+				if err := l.drainFileIgnoreEOF(file, output); err != nil {
+					issues <- err
+					return
+				}
 				issues <- io.EOF
 				return
 			case <-ctx.Done():
@@ -160,7 +167,7 @@ func (l *Logger) ReadAndFollow(ctx context.Context, name string) (<-chan []byte,
 				}
 				switch event {
 				case fsnotify.Write:
-					if err := l.drainFileIgnoreEOF(file, sink); err != nil {
+					if err := l.drainFileIgnoreEOF(file, output); err != nil {
 						issues <- err
 						return
 					}
@@ -177,7 +184,7 @@ func (l *Logger) ReadAndFollow(ctx context.Context, name string) (<-chan []byte,
 		}
 	}()
 
-	return sink, issues, nil
+	return output, issues, nil
 }
 
 // Shutdown removes all watches and closes the events channels.
@@ -218,15 +225,16 @@ func (l *Logger) drainFileIgnoreEOF(file io.Reader, sink chan<- []byte) error {
 
 	for {
 		n, err := file.Read(buff)
-		switch {
-		case err == nil:
-			out := make([]byte, n)
-			copy(out, buff[:n])
-			sink <- out
-		case err == io.EOF:
-			// This EOF is ignored, as later we want to watch this file for changes.
-			return nil
-		default:
+		// Even if error occurred, read may already load data into buffer.
+		out := make([]byte, n)
+		copy(out, buff[:n])
+		sink <- out
+
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				// This EOF is ignored, as later we want to watch this file for changes.
+				return nil
+			}
 			return errors.Wrap(err, "while reading log file")
 		}
 	}

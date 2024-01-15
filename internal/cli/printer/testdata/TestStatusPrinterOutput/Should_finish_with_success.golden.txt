@@ -1,0 +1,3 @@
+ • Should finish with success
+ ✓ Should finish with success
+

@@ -1,8 +1,6 @@
 package main
 
 import (
-	"log"
-
 	"github.com/spf13/cobra"
 
 	"github.com/mszostok/job-runner/cmd/agent/start"
@@ -26,10 +24,8 @@ func NewRoot() *cobra.Command {
             $ <cli> start daemon             # Starts Agent long living process on host.
             `, Name),
 		SilenceUsage: true,
-		Run: func(cmd *cobra.Command, args []string) {
-			if err := cmd.Help(); err != nil {
-				log.Fatalln(err)
-			}
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmd.Help()
 		},
 	}
 

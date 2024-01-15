@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"os"
-	"os/signal"
-	"syscall"
+
+	"github.com/mszostok/job-runner/internal/xsignal"
 )
 
 func main() {
@@ -12,16 +12,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		select {
-		case <-ctx.Done():
-		case <-sigCh:
-			cancel()
-		}
-	}()
+	ctx = xsignal.WithStopContext(ctx)
 
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		// error is already handled by `cobra`, we don't want to log it here as we will duplicate the message.

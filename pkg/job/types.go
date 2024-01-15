@@ -21,6 +21,7 @@ func (s Status) IsFinished() bool {
 
 type RunInput struct {
 	// Tenant specifies the tenant of a given Job.
+	// TODO: rename to Tenant to have better consistency.
 	Tenant string
 	// Name specifies Cmd name.
 	Name string
